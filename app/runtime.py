@@ -14,6 +14,7 @@ from app.agents import (
     TesterAgent,
 )
 from app.approvals import ApprovalManager
+from app.artifacts import ArtifactStore
 from app.config.settings import Settings, get_settings
 from app.memory import MemoryStore, SqlMemoryStore
 from app.observability import MetricsRecorder, configure_tracing
@@ -32,6 +33,7 @@ class AtlasRuntime:
     tools: ToolRegistry
     metrics: MetricsRecorder
     approvals: ApprovalManager
+    artifacts: ArtifactStore
     manager: TaskManager
 
     async def initialize(self) -> None:
@@ -75,6 +77,7 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
     memory: MemoryStore = SqlMemoryStore(settings.database_url)
     metrics = MetricsRecorder()
     approvals = ApprovalManager()
+    artifacts = ArtifactStore(Path(settings.artifact_dir))
     manager = TaskManager(orchestrator, task_store, metrics)
 
     return AtlasRuntime(
@@ -84,5 +87,6 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
         tools=tool_registry,
         metrics=metrics,
         approvals=approvals,
+        artifacts=artifacts,
         manager=manager,
     )
