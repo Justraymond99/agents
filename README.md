@@ -11,7 +11,8 @@ The harness is the source of truth for orchestration, memory, permissions, retri
 - Sprint 2 — provider abstraction, OpenAI adapter, registry, normalized errors, and retries: complete
 - Sprint 3 — generic agent runtime, Planner/Researcher/Builder/Tester/Reviewer, agent registry, and tests: complete
 - Sprint 4 — sequential orchestrator, dependency-aware step execution, execution state, final review, and traces: complete
-- Sprint 5 — revision loop and retry policy: next
+- Sprint 5 — bounded reviewer-driven revision loop, revision policy, feedback propagation, and tests: complete
+- Sprint 6 — constrained tool registry, permissions, timeouts, and audit trail: next
 
 ## Initial architecture
 
@@ -61,9 +62,11 @@ Execution context is serialized into a developer message so task/run metadata an
 
 ## Orchestration layer
 
-The first orchestrator is intentionally sequential and trace-first. It accepts a `Task`, asks the Planner for a validated DAG, selects dependency-ready steps, dispatches the assigned agents, propagates failures, records structured trace events, and performs an independent final review before marking the task passed or failed.
+The current orchestrator is sequential and trace-first. It accepts a `Task`, asks the Planner for a validated DAG, selects dependency-ready steps, dispatches the assigned agents, propagates failures, records structured trace events, and performs an independent final review.
 
-Parallel DAG scheduling is deferred to a later sprint so the revision loop, tool layer, and state semantics can stabilize first.
+A rejected final review can now trigger a bounded revision cycle. The default revision policy reruns Builder-owned steps once, supplies the reviewer feedback plus the prior result as structured execution context, and then sends the revised result back through independent review. If the revision fails or the configured attempt limit is exhausted, the task terminates as failed.
+
+Parallel DAG scheduling is deferred to a later sprint so the tool layer and persistence semantics can stabilize first.
 
 ## First milestone
 
