@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from sqlalchemy import JSON, String, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.models.task import Task
@@ -44,8 +44,8 @@ class Base(DeclarativeBase):
 class TaskRow(Base):
     __tablename__ = "atlas_tasks"
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
-    result_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    result_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
 
 class SqlTaskStore:
@@ -56,6 +56,9 @@ class SqlTaskStore:
     async def init(self) -> None:
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    async def close(self) -> None:
+        await self.engine.dispose()
 
     async def save_task(self, task: Task) -> None:
         async with self.sessions() as session:
