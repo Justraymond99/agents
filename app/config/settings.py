@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     app_name: str = "ATLAS"
     environment: str = "development"
     log_level: str = "INFO"
+    workspace: str = "."
+    database_url: str = "sqlite+aiosqlite:///./atlas.db"
+    redis_url: str = "redis://localhost:6379/0"
 
     default_provider: str = "openai"
     default_model: str = "gpt-5.4"
