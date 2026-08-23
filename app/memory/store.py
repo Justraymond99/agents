@@ -35,7 +35,7 @@ class InMemoryMemoryStore:
         needle = text.lower()
         matches = [
             record.model_copy(deep=True)
-            for (ns, _), record in self._records.items()
-            if ns == namespace and needle in (record.key + " " + record.value).lower()
+            for (_, _), record in self._records.items()
+            if needle in (record.key + " " + record.value).lower()
         ]
         return matches[:limit]
