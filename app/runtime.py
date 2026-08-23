@@ -21,7 +21,7 @@ from app.observability import MetricsRecorder, configure_tracing
 from app.orchestration import DagScheduler, Orchestrator, RevisionPolicy
 from app.persistence import SqlTaskStore, TaskStore
 from app.providers import OpenAIProvider, RetryingModelClient
-from app.services import TaskManager
+from app.services import TaskManager, TaskScheduler
 from app.tools import ToolRegistry, build_builtin_tools
 
 
@@ -35,6 +35,7 @@ class AtlasRuntime:
     approvals: ApprovalManager
     artifacts: ArtifactStore
     manager: TaskManager
+    scheduler: TaskScheduler
 
     async def initialize(self) -> None:
         configure_tracing("atlas")
@@ -44,6 +45,7 @@ class AtlasRuntime:
             await self.memory.init()
 
     async def shutdown(self) -> None:
+        await self.scheduler.shutdown()
         await self.manager.shutdown()
         if isinstance(self.task_store, SqlTaskStore):
             await self.task_store.close()
@@ -79,6 +81,7 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
     approvals = ApprovalManager()
     artifacts = ArtifactStore(Path(settings.artifact_dir))
     manager = TaskManager(orchestrator, task_store, metrics)
+    scheduler = TaskScheduler(manager)
 
     return AtlasRuntime(
         orchestrator=orchestrator,
@@ -89,4 +92,5 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
         approvals=approvals,
         artifacts=artifacts,
         manager=manager,
+        scheduler=scheduler,
     )
