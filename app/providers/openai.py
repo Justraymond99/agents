@@ -56,15 +56,17 @@ class OpenAIProvider:
             ]
 
         try:
-            response = await self._client.responses.create(**kwargs)  # type: ignore[arg-type]
+            response = await self._client.responses.create(**kwargs)  # type: ignore[call-overload]
         except APIError as exc:
             raise ProviderError(f"OpenAI request failed: {exc}") from exc
 
         output_text = response.output_text or ""
 
         if response.status == "failed":
-            message = response.error.message if response.error is not None else "unknown provider error"
-            raise ProviderResponseError(message)
+            error_message = (
+                response.error.message if response.error is not None else "unknown provider error"
+            )
+            raise ProviderResponseError(error_message)
 
         tool_calls: list[ModelToolCall] = []
         for item in getattr(response, "output", []):
