@@ -2,74 +2,163 @@
 
 ATLAS is a provider-agnostic multi-agent orchestration harness designed to coordinate specialized AI agents across engineering, research, planning, interview preparation, and personal workflows.
 
-The harness is the source of truth for orchestration, memory, permissions, retries, evaluation, and observability. Codex, Cursor, CLI, web/mobile clients, and eventually Apple Watch connect to the same backend.
+The harness owns orchestration, tool permissions, execution limits, memory, persistence, review/revision, scheduling, artifacts, approvals, observability, and client interfaces. Codex, Cursor, HTTP clients, and the Apple thin-client scaffold all connect to the same backend.
 
-## Current status
+## v0.1 status
 
-- Sprint 0 — repository bootstrap: complete
-- Sprint 1 — typed task/result/trace domain models: complete
-- Sprint 2 — provider abstraction, OpenAI adapter, registry, normalized errors, and retries: complete
-- Sprint 3 — generic agent runtime, Planner/Researcher/Builder/Tester/Reviewer, agent registry, and tests: complete
-- Sprint 4 — sequential orchestrator, dependency-aware step execution, execution state, final review, and traces: complete
-- Sprint 5 — bounded reviewer-driven revision loop, revision policy, feedback propagation, and tests: complete
-- Sprint 6 — constrained tool registry, permissions, timeouts, and audit trail: next
+The original implementation roadmap through Sprint 12 is now represented in the repository:
 
-## Initial architecture
+- Sprint 0 — Python/FastAPI bootstrap, Docker, CI, configuration
+- Sprint 1 — typed task/result/trace models and DAG validation
+- Sprint 2 — provider abstraction, OpenAI Responses adapter, retry/error normalization
+- Sprint 3 — Planner, Researcher, Builder, Tester, Reviewer, agent registry
+- Sprint 4 — orchestrator and explicit execution state
+- Sprint 5 — bounded reviewer-driven revision loop
+- Sprint 6 — constrained tools, permissions, timeouts, workspace sandboxing, audit records
+- Sprint 7 — bounded concurrent DAG scheduler
+- Sprint 8 — async SQL task/result persistence and Redis run-state support
+- Sprint 9 — OpenTelemetry tracing plus runtime counters/timings
+- Sprint 10 — MCP server for Codex/Cursor-style clients
+- Sprint 11 — engineering domain workflows
+- Sprint 12 — evaluation harness and benchmark cases
+
+Post-MVP capabilities are also scaffolded: SQL long-term memory, model routing/budget policy, approval gates, artifact storage, background tasks, recurring schedules, dynamic agents, HTTP API security, a lightweight dashboard, and iPhone/watchOS client source.
+
+## Architecture
 
 ```text
-Task
-  -> Planner
-  -> Task Graph
-  -> Specialized Agents
-  -> Tester
-  -> Reviewer
-      -> Pass -> Done
-      -> Fail -> Revision Loop
+Client (MCP / HTTP / Apple)
+          |
+          v
+      ATLAS Runtime
+          |
+          v
+       Planner
+          |
+          v
+      Typed DAG
+     /    |    \
+Research Build  Test
+     \    |    /
+      Shared State
+          |
+          v
+       Reviewer
+       /      \
+    PASS      REVISE
+                |
+                +----> bounded retry
 ```
 
-## Stack
+## Core stack
 
 - Python 3.12+
-- FastAPI
-- Pydantic
+- FastAPI + Pydantic
 - asyncio
-- PostgreSQL
-- Redis
-- OpenAI Responses API adapter
-- pytest
+- OpenAI Responses API adapter behind a provider-neutral interface
+- SQLAlchemy async persistence (SQLite by default; PostgreSQL supported)
+- Redis support for ephemeral run state
 - OpenTelemetry
-- Docker
+- MCP
+- pytest, Ruff, mypy
+- Docker / Docker Compose
+- SwiftUI/watchOS thin-client source
 
-## Provider layer
+## Quick start
 
-ATLAS agents use a common `ModelClient` interface. Provider-specific SDK details stay behind adapters, while orchestration code works with normalized `ModelRequest` and `ModelResponse` contracts.
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e '.[dev]'
+cp .env.example .env
+```
 
-The first adapter uses OpenAI's Responses API. The provider registry and retry wrapper are intentionally model-provider independent so additional adapters can be added without changing agent or orchestration code.
+Set `ATLAS_OPENAI_API_KEY` in `.env`, then run:
 
-## Agent layer
+```bash
+uvicorn app.main:app --reload
+```
 
-Agents share a generic typed `BaseAgent` runtime. Each specialized agent defines its role, system prompt, model, provider client, and expected Pydantic output contract.
+Useful endpoints:
 
-The initial registry contains five roles:
+```text
+GET  /health
+POST /tasks
+GET  /tasks/{id}
+GET  /tasks/{id}/result
+GET  /tasks/{id}/trace
+POST /tasks/{id}/cancel
+GET  /tools
+GET  /tools/audit
+GET  /metrics
+POST /memory/write
+POST /memory/query
+POST /approvals
+POST /artifacts
+POST /schedules
+GET  /dashboard
+```
 
-- Planner — produces a validated `TaskPlan`
-- Researcher — gathers and synthesizes context
-- Builder — implements the assigned change
-- Tester — independently validates behavior
-- Reviewer — independently approves or rejects the result
+Task submission is asynchronous over HTTP and returns `202 Accepted`; poll the task/result endpoints for completion.
 
-Execution context is serialized into a developer message so task/run metadata and prior results can be supplied without mixing them into the user's request.
+## Security
 
-## Orchestration layer
+Set `ATLAS_API_TOKEN` before exposing ATLAS beyond a trusted local development environment. When configured, every HTTP endpoint except `/health` requires:
 
-The current orchestrator is sequential and trace-first. It accepts a `Task`, asks the Planner for a validated DAG, selects dependency-ready steps, dispatches the assigned agents, propagates failures, records structured trace events, and performs an independent final review.
+```text
+Authorization: Bearer <ATLAS_API_TOKEN>
+```
 
-A rejected final review can now trigger a bounded revision cycle. The default revision policy reruns Builder-owned steps once, supplies the reviewer feedback plus the prior result as structured execution context, and then sends the revised result back through independent review. If the revision fails or the configured attempt limit is exhausted, the task terminates as failed.
+Built-in filesystem tools are constrained to `ATLAS_WORKSPACE`, commands are executed without a shell, and agents receive role-specific tool permissions. High-impact external actions should be routed through approval gates before production use.
 
-Parallel DAG scheduling is deferred to a later sprint so the tool layer and persistence semantics can stabilize first.
+## MCP
 
-## First milestone
+Start the MCP server with:
 
-Given a natural-language software task, ATLAS should create a typed plan, dispatch multiple specialized agents, validate the result with an independent tester/reviewer, retry a rejected result once, and return a structured execution trace.
+```bash
+python -m app.mcp_server
+```
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the roadmap.
+Current MCP surface includes task submission/status/results/cancellation, namespaced memory, artifacts, approval requests, and runtime metrics. See [`docs/MCP_CLIENTS.md`](docs/MCP_CLIENTS.md) for client configuration.
+
+## Persistence
+
+The default local database is SQLite:
+
+```text
+ATLAS_DATABASE_URL=sqlite+aiosqlite:///./atlas.db
+```
+
+For PostgreSQL, use an async URL such as:
+
+```text
+ATLAS_DATABASE_URL=postgresql+asyncpg://atlas:atlas@localhost:5432/atlas
+```
+
+`docker compose up -d` starts local PostgreSQL and Redis services.
+
+## Engineering workflow
+
+A typical task can follow:
+
+```text
+Planner
+  -> Researcher inspects context
+  -> Tester reproduces failure
+  -> Builder makes the smallest verified change
+  -> Tester validates
+  -> Reviewer independently approves or rejects
+  -> Builder revises when required
+```
+
+The model may request constrained tools such as `read_file`, `write_file`, `list_files`, `run_command`, `run_tests`, and `git_diff`. Every executed tool call is recorded in the in-process audit trail.
+
+## Apple Watch / iPhone
+
+`clients/apple/` contains the initial Swift thin-client source. The Watch does not host the agents; it submits tasks to the ATLAS API, checks status/results, and can resolve approvals. A real device build still requires creating the iOS/watchOS targets in Xcode, configuring a reachable HTTPS endpoint, and provisioning/authentication.
+
+## What v0.1 deliberately does not claim
+
+ATLAS is a functional engineering foundation, not a production-hosted autonomous service yet. Deployment, secrets management, durable distributed scheduling, production-grade authentication/authorization, vector retrieval, push notifications, and a signed App Store/watchOS build remain environment/deployment work rather than core harness code.
+
+See [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the original design and roadmap.
