@@ -10,7 +10,8 @@ The harness is the source of truth for orchestration, memory, permissions, retri
 - Sprint 1 — typed task/result/trace domain models: complete
 - Sprint 2 — provider abstraction, OpenAI adapter, registry, normalized errors, and retries: complete
 - Sprint 3 — generic agent runtime, Planner/Researcher/Builder/Tester/Reviewer, agent registry, and tests: complete
-- Sprint 4 — sequential orchestrator and execution state: next
+- Sprint 4 — sequential orchestrator, dependency-aware step execution, execution state, final review, and traces: complete
+- Sprint 5 — revision loop and retry policy: next
 
 ## Initial architecture
 
@@ -57,6 +58,12 @@ The initial registry contains five roles:
 - Reviewer — independently approves or rejects the result
 
 Execution context is serialized into a developer message so task/run metadata and prior results can be supplied without mixing them into the user's request.
+
+## Orchestration layer
+
+The first orchestrator is intentionally sequential and trace-first. It accepts a `Task`, asks the Planner for a validated DAG, selects dependency-ready steps, dispatches the assigned agents, propagates failures, records structured trace events, and performs an independent final review before marking the task passed or failed.
+
+Parallel DAG scheduling is deferred to a later sprint so the revision loop, tool layer, and state semantics can stabilize first.
 
 ## First milestone
 
