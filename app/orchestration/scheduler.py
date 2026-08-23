@@ -19,6 +19,7 @@ class DagScheduler:
     async def run(self, plan: TaskPlan, runner: StepRunner) -> None:
         pending = {step.id: step for step in plan.steps}
         completed: set[str] = set()
+        running: list[asyncio.Task[None]] = []
 
         while pending:
             ready = [
@@ -30,7 +31,9 @@ class DagScheduler:
                 raise RuntimeError("no dependency-ready steps remain")
 
             batch = ready[: self.max_parallel_tasks]
-            await asyncio.gather(*(runner(step) for step in batch))
+            running.extend(asyncio.create_task(runner(step)) for step in batch)
             for step in batch:
                 completed.add(step.id)
                 pending.pop(step.id)
+
+        await asyncio.gather(*running)
