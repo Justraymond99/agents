@@ -64,6 +64,10 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
     async def list_tools() -> dict[str, object]:
         return {"tools": list(runtime.tools.names())}
 
+    @router.get("/metrics")
+    async def metrics() -> dict[str, object]:
+        return runtime.metrics.snapshot()
+
     @router.post("/memory/write")
     async def write_memory(request: MemoryWriteRequest) -> dict[str, object]:
         record = MemoryRecord(
