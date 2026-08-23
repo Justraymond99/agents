@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from openai import AsyncOpenAI
+from openai import APIError, AsyncOpenAI
 
 from app.models.message import MessageRole, ModelRequest, ModelResponse, ModelUsage
-from app.providers.errors import ProviderResponseError
+from app.providers.errors import ProviderError, ProviderResponseError
 
 
 class OpenAIProvider:
@@ -47,7 +47,11 @@ class OpenAIProvider:
                 for tool in request.tools
             ]
 
-        response = await self._client.responses.create(**kwargs)  # type: ignore[arg-type]
+        try:
+            response = await self._client.responses.create(**kwargs)  # type: ignore[arg-type]
+        except APIError as exc:
+            raise ProviderError(f"OpenAI request failed: {exc}") from exc
+
         output_text = response.output_text or ""
 
         if response.status == "failed":
