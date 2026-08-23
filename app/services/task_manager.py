@@ -36,6 +36,8 @@ class TaskManager:
     async def _execute(self, task: Task) -> None:
         started = perf_counter()
         try:
+            task.status = TaskStatus.RUNNING
+            await self.store.save_task(task)
             with span("atlas.task", task_id=task.id):
                 result = await self.orchestrator.execute(task)
             await self.store.save_task(task)
