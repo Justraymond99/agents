@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.models.message import Message, MessageRole, ModelRequest, ToolSchema
 from app.providers.base import ModelClient
+from app.tools import Permission, ToolCall, ToolRegistry
 
 TOutput = TypeVar("TOutput", bound=BaseModel)
 
@@ -32,6 +33,9 @@ class BaseAgent(Generic[TOutput]):
         response_model: type[TOutput],
         system_prompt: str,
         tools: list[ToolSchema] | None = None,
+        tool_registry: ToolRegistry | None = None,
+        allowed_permissions: set[Permission] | None = None,
+        max_tool_rounds: int = 8,
         max_output_tokens: int | None = None,
     ) -> None:
         self.name = name
@@ -40,13 +44,67 @@ class BaseAgent(Generic[TOutput]):
         self.client = client
         self.response_model = response_model
         self.system_prompt = system_prompt
-        self.tools = list(tools or [])
+        self.tool_registry = tool_registry
+        self.allowed_permissions = set(allowed_permissions or set())
+        self.max_tool_rounds = max_tool_rounds
         self.max_output_tokens = max_output_tokens
+
+        if tools is not None:
+            self.tools = list(tools)
+        elif tool_registry is not None:
+            self.tools = [
+                ToolSchema(
+                    name=tool.spec.name,
+                    description=tool.spec.description,
+                    parameters=tool.spec.parameters,
+                )
+                for name in tool_registry.names()
+                for tool in [tool_registry.get(name)]
+                if tool.spec.permission in self.allowed_permissions
+            ]
+        else:
+            self.tools = []
 
     async def run(self, prompt: str, context: AgentContext | None = None) -> TOutput:
         request = self.build_request(prompt, context)
-        response = await self.client.generate(request)
-        return self.parse_response(response.output_text)
+
+        for _ in range(self.max_tool_rounds + 1):
+            response = await self.client.generate(request)
+            if not response.tool_calls:
+                return self.parse_response(response.output_text)
+
+            if self.tool_registry is None:
+                raise RuntimeError(f"agent '{self.name}' requested tools without a tool registry")
+
+            tool_results: list[dict[str, object]] = []
+            for model_call in response.tool_calls:
+                result = await self.tool_registry.invoke(
+                    ToolCall(tool=model_call.name, arguments=dict(model_call.arguments)),
+                    allowed_permissions=self.allowed_permissions,
+                )
+                tool_results.append(
+                    {
+                        "call_id": model_call.call_id,
+                        "tool": model_call.name,
+                        "arguments": model_call.arguments,
+                        "result": result.model_dump(mode="json"),
+                    }
+                )
+
+            messages = list(request.messages)
+            messages.append(
+                Message(
+                    role=MessageRole.DEVELOPER,
+                    content=(
+                        "Tool calls from the previous model turn were executed. Use these exact "
+                        "results as evidence and continue the task. Do not claim any unexecuted action.\n"
+                        + json.dumps(tool_results, sort_keys=True)
+                    ),
+                )
+            )
+            request = request.model_copy(update={"messages": messages})
+
+        raise RuntimeError(f"agent '{self.name}' exceeded max_tool_rounds={self.max_tool_rounds}")
 
     def build_request(self, prompt: str, context: AgentContext | None = None) -> ModelRequest:
         if not prompt.strip():
