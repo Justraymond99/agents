@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.memory import MemoryRecord
-from app.models.task import Task
 from app.runtime import AtlasRuntime
 
 
@@ -29,14 +26,10 @@ class MemoryQueryRequest(BaseModel):
 def build_router(runtime: AtlasRuntime) -> APIRouter:
     router = APIRouter()
 
-    @router.post("/tasks")
+    @router.post("/tasks", status_code=status.HTTP_202_ACCEPTED)
     async def submit_task(request: SubmitTaskRequest) -> dict[str, object]:
-        task = Task(id=str(uuid4()), goal=request.goal)
-        await runtime.task_store.save_task(task)
-        result = await runtime.orchestrator.execute(task)
-        await runtime.task_store.save_task(task)
-        await runtime.task_store.save_result(result)
-        return result.model_dump(mode="json")
+        task = await runtime.manager.submit(request.goal)
+        return task.model_dump(mode="json")
 
     @router.get("/tasks/{task_id}")
     async def get_task(task_id: str) -> dict[str, object]:
@@ -58,6 +51,18 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
         if result is None:
             raise HTTPException(status_code=404, detail="result not found")
         return result.trace.model_dump(mode="json")
+
+    @router.post("/tasks/{task_id}/cancel")
+    async def cancel_task(task_id: str) -> dict[str, object]:
+        task = await runtime.task_store.get_task(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        cancelled = await runtime.manager.cancel(task_id)
+        return {"task_id": task_id, "cancelled": cancelled}
+
+    @router.get("/tools")
+    async def list_tools() -> dict[str, object]:
+        return {"tools": list(runtime.tools.names())}
 
     @router.post("/memory/write")
     async def write_memory(request: MemoryWriteRequest) -> dict[str, object]:
