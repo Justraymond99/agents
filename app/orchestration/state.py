@@ -14,6 +14,7 @@ class ExecutionState(BaseModel):
     plan: TaskPlan | None = None
     results: dict[str, AgentResult] = Field(default_factory=dict)
     review: ReviewResult | None = None
+    revision_attempts: int = Field(default=0, ge=0)
     trace: RunTrace
 
 
@@ -23,4 +24,5 @@ class OrchestrationResult(BaseModel):
     status: TaskStatus
     results: dict[str, AgentResult] = Field(default_factory=dict)
     review: ReviewResult | None = None
+    revision_attempts: int = Field(default=0, ge=0)
     trace: RunTrace
