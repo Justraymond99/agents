@@ -86,6 +86,10 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
     async def list_tools() -> dict[str, object]:
         return {"tools": list(runtime.tools.names())}
 
+    @router.get("/tools/audit")
+    async def tool_audit() -> list[dict[str, object]]:
+        return [record.model_dump(mode="json") for record in runtime.tools.audit_records()]
+
     @router.get("/metrics")
     async def metrics() -> dict[str, object]:
         return runtime.metrics.snapshot()
