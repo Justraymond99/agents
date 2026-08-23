@@ -1,8 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
 
 from app.api.routes import build_router
 from app.config.settings import get_settings
@@ -30,12 +31,15 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def require_api_token(request: Request, call_next: object) -> object:
+async def require_api_token(
+    request: Request,
+    call_next: RequestResponseEndpoint,
+) -> Response:
     if settings.api_token and request.url.path != "/health":
         expected = f"Bearer {settings.api_token}"
         if request.headers.get("authorization") != expected:
             return JSONResponse(status_code=401, content={"detail": "unauthorized"})
-    return await call_next(request)  # type: ignore[operator]
+    return await call_next(request)
 
 
 app.include_router(build_router(runtime))
