@@ -39,6 +39,12 @@ class CreateArtifactRequest(BaseModel):
     media_type: str = "text/plain"
 
 
+class CreateScheduleRequest(BaseModel):
+    goal: str = Field(min_length=1)
+    interval_seconds: float = Field(gt=0)
+    start: bool = True
+
+
 def build_router(runtime: AtlasRuntime) -> APIRouter:
     router = APIRouter()
 
@@ -139,5 +145,36 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
         if artifact is None:
             raise HTTPException(status_code=404, detail="artifact not found")
         return artifact.model_dump(mode="json")
+
+    @router.post("/schedules")
+    async def create_schedule(request: CreateScheduleRequest) -> dict[str, object]:
+        job = runtime.scheduler.add(request.goal, request.interval_seconds)
+        if request.start:
+            runtime.scheduler.start(job.id)
+        return {
+            "id": job.id,
+            "goal": job.goal,
+            "interval_seconds": job.interval_seconds,
+            "enabled": job.enabled,
+        }
+
+    @router.get("/schedules")
+    async def list_schedules() -> list[dict[str, object]]:
+        return [
+            {
+                "id": job.id,
+                "goal": job.goal,
+                "interval_seconds": job.interval_seconds,
+                "enabled": job.enabled,
+            }
+            for job in runtime.scheduler.jobs.values()
+        ]
+
+    @router.post("/schedules/{job_id}/stop")
+    async def stop_schedule(job_id: str) -> dict[str, object]:
+        if job_id not in runtime.scheduler.jobs:
+            raise HTTPException(status_code=404, detail="schedule not found")
+        stopped = await runtime.scheduler.stop(job_id)
+        return {"id": job_id, "stopped": stopped}
 
     return router
