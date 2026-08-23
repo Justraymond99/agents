@@ -23,6 +23,16 @@ class MemoryQueryRequest(BaseModel):
     limit: int = Field(default=10, ge=1, le=100)
 
 
+class CreateApprovalRequest(BaseModel):
+    action: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    payload: dict[str, object] = Field(default_factory=dict)
+
+
+class ResolveApprovalRequest(BaseModel):
+    approved: bool
+
+
 def build_router(runtime: AtlasRuntime) -> APIRouter:
     router = APIRouter()
 
@@ -82,5 +92,30 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
     async def query_memory(request: MemoryQueryRequest) -> list[dict[str, object]]:
         records = await runtime.memory.query(request.namespace, request.text, request.limit)
         return [record.model_dump(mode="json") for record in records]
+
+    @router.post("/approvals")
+    async def create_approval(request: CreateApprovalRequest) -> dict[str, object]:
+        approval = runtime.approvals.create(request.action, request.reason, request.payload)
+        return approval.model_dump(mode="json")
+
+    @router.get("/approvals/{approval_id}")
+    async def get_approval(approval_id: str) -> dict[str, object]:
+        approval = runtime.approvals.get(approval_id)
+        if approval is None:
+            raise HTTPException(status_code=404, detail="approval not found")
+        return approval.model_dump(mode="json")
+
+    @router.post("/approvals/{approval_id}/resolve")
+    async def resolve_approval(
+        approval_id: str,
+        request: ResolveApprovalRequest,
+    ) -> dict[str, object]:
+        try:
+            approval = runtime.approvals.resolve(approval_id, request.approved)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="approval not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return approval.model_dump(mode="json")
 
     return router
