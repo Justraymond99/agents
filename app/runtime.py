@@ -15,7 +15,7 @@ from app.agents import (
 )
 from app.config.settings import Settings, get_settings
 from app.memory import InMemoryMemoryStore
-from app.orchestration import Orchestrator, RevisionPolicy
+from app.orchestration import DagScheduler, Orchestrator, RevisionPolicy
 from app.persistence import InMemoryTaskStore
 from app.providers import OpenAIProvider, RetryingModelClient
 from app.tools import ToolRegistry, build_builtin_tools
@@ -49,6 +49,7 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
         planner=planner,
         agents=registry,
         revision_policy=RevisionPolicy(max_attempts=settings.max_iterations),
+        scheduler=DagScheduler(max_parallel_tasks=settings.max_parallel_tasks),
     )
     return AtlasRuntime(
         orchestrator=orchestrator,
