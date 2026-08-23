@@ -3,8 +3,11 @@ from app.providers.errors import ProviderError, ProviderNotFoundError, ProviderR
 from app.providers.openai import OpenAIProvider
 from app.providers.registry import ProviderRegistry
 from app.providers.retry import RetryPolicy, RetryingModelClient
+from app.providers.router import BudgetExceededError, BudgetPolicy, RoutingModelClient
 
 __all__ = [
+    "BudgetExceededError",
+    "BudgetPolicy",
     "ModelClient",
     "OpenAIProvider",
     "ProviderError",
@@ -13,4 +16,5 @@ __all__ = [
     "ProviderResponseError",
     "RetryPolicy",
     "RetryingModelClient",
+    "RoutingModelClient",
 ]
