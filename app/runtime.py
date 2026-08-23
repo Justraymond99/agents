@@ -15,6 +15,7 @@ from app.agents import (
 )
 from app.config.settings import Settings, get_settings
 from app.memory import InMemoryMemoryStore
+from app.observability import MetricsRecorder, configure_tracing
 from app.orchestration import DagScheduler, Orchestrator, RevisionPolicy
 from app.persistence import SqlTaskStore, TaskStore
 from app.providers import OpenAIProvider, RetryingModelClient
@@ -28,9 +29,11 @@ class AtlasRuntime:
     task_store: TaskStore
     memory: InMemoryMemoryStore
     tools: ToolRegistry
+    metrics: MetricsRecorder
     manager: TaskManager
 
     async def initialize(self) -> None:
+        configure_tracing("atlas")
         if isinstance(self.task_store, SqlTaskStore):
             await self.task_store.init()
 
@@ -63,12 +66,14 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
         scheduler=DagScheduler(max_parallel_tasks=settings.max_parallel_tasks),
     )
     task_store: TaskStore = SqlTaskStore(settings.database_url)
-    manager = TaskManager(orchestrator, task_store)
+    metrics = MetricsRecorder()
+    manager = TaskManager(orchestrator, task_store, metrics)
 
     return AtlasRuntime(
         orchestrator=orchestrator,
         task_store=task_store,
         memory=InMemoryMemoryStore(),
         tools=tool_registry,
+        metrics=metrics,
         manager=manager,
     )
