@@ -1,6 +1,6 @@
 import pytest
 
-from app.models.message import Message, MessageRole, ModelRequest, ModelResponse
+from app.models.message import ModelRequest, ModelResponse
 from app.providers.errors import ProviderNotFoundError
 from app.providers.registry import ProviderRegistry
 
