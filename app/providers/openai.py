@@ -67,7 +67,7 @@ class OpenAIProvider:
             raise ProviderResponseError(message)
 
         tool_calls: list[ModelToolCall] = []
-        for item in response.output:
+        for item in getattr(response, "output", []):
             if getattr(item, "type", None) != "function_call":
                 continue
             raw_arguments = getattr(item, "arguments", "{}") or "{}"
