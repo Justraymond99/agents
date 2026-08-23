@@ -23,6 +23,12 @@ class ToolSchema(BaseModel):
     parameters: dict[str, object] = Field(default_factory=dict)
 
 
+class ModelToolCall(BaseModel):
+    call_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    arguments: dict[str, object] = Field(default_factory=dict)
+
+
 class ModelRequest(BaseModel):
     model: str = Field(min_length=1)
     messages: list[Message] = Field(min_length=1)
@@ -42,4 +48,5 @@ class ModelResponse(BaseModel):
     output_text: str
     response_id: str | None = None
     usage: ModelUsage = Field(default_factory=ModelUsage)
+    tool_calls: list[ModelToolCall] = Field(default_factory=list)
     raw_metadata: dict[str, object] = Field(default_factory=dict)
