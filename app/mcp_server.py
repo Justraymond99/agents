@@ -61,6 +61,7 @@ async def cancel_task(task_id: str) -> dict[str, object]:
 @mcp.tool()
 async def query_memory(namespace: str, query: str, limit: int = 10) -> list[dict[str, object]]:
     """Search a namespaced ATLAS memory store."""
+    await _ensure_runtime()
     records = await runtime.memory.query(namespace, query, limit)
     return [record.model_dump(mode="json") for record in records]
 
@@ -68,9 +69,60 @@ async def query_memory(namespace: str, query: str, limit: int = 10) -> list[dict
 @mcp.tool()
 async def write_memory(namespace: str, key: str, value: str) -> dict[str, object]:
     """Write one namespaced memory record."""
+    await _ensure_runtime()
     record = MemoryRecord(namespace=namespace, key=key, value=value)
     await runtime.memory.put(record)
     return record.model_dump(mode="json")
+
+
+@mcp.tool()
+async def create_artifact(
+    name: str,
+    content: str,
+    media_type: str = "text/plain",
+) -> dict[str, object]:
+    """Persist a text artifact and return its metadata."""
+    artifact = runtime.artifacts.put_bytes(
+        name,
+        content.encode("utf-8"),
+        media_type=media_type,
+    )
+    return artifact.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_artifact(artifact_id: str) -> dict[str, object]:
+    """Return artifact metadata."""
+    artifact = runtime.artifacts.get(artifact_id)
+    if artifact is None:
+        return {"found": False, "artifact_id": artifact_id}
+    return {"found": True, **artifact.model_dump(mode="json")}
+
+
+@mcp.tool()
+async def create_approval(
+    action: str,
+    reason: str,
+) -> dict[str, object]:
+    """Create a human approval request for a high-impact action."""
+    approval = runtime.approvals.create(action, reason)
+    return approval.model_dump(mode="json")
+
+
+@mcp.tool()
+async def resolve_approval(approval_id: str, approved: bool) -> dict[str, object]:
+    """Approve or reject a pending approval request."""
+    try:
+        approval = runtime.approvals.resolve(approval_id, approved)
+    except (KeyError, ValueError) as exc:
+        return {"resolved": False, "error": str(exc)}
+    return {"resolved": True, **approval.model_dump(mode="json")}
+
+
+@mcp.tool()
+async def runtime_metrics() -> dict[str, object]:
+    """Return in-process ATLAS task counters and timings."""
+    return runtime.metrics.snapshot()
 
 
 if __name__ == "__main__":
