@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     app_name: str = "ATLAS"
     environment: str = "development"
     log_level: str = "INFO"
+
+    default_provider: str = "openai"
+    default_model: str = "gpt-5.4"
+    openai_api_key: str | None = None
+
     max_iterations: int = 3
     max_agents_per_task: int = 8
     max_runtime_seconds: int = 900
