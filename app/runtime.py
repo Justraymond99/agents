@@ -48,7 +48,7 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
     orchestrator = Orchestrator(
         planner=planner,
         agents=registry,
-        revision_policy=RevisionPolicy(max_attempts=settings.max_iterations),
+        revision_policy=RevisionPolicy(max_revision_attempts=settings.max_iterations),
         scheduler=DagScheduler(max_parallel_tasks=settings.max_parallel_tasks),
     )
     return AtlasRuntime(
