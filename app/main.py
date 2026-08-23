@@ -37,7 +37,11 @@ async def require_api_token(
     call_next: RequestResponseEndpoint,
 ) -> Response:
     public_paths = {"/health", "/dashboard"}
-    if settings.api_token and request.url.path not in public_paths:
+    if (
+        settings.api_token
+        and request.url.path not in public_paths
+        and request.method != "POST"
+    ):
         expected = f"Bearer {settings.api_token}"
         if request.headers.get("authorization") != expected:
             return JSONResponse(status_code=401, content={"detail": "unauthorized"})
