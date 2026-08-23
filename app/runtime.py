@@ -16,17 +16,28 @@ from app.agents import (
 from app.config.settings import Settings, get_settings
 from app.memory import InMemoryMemoryStore
 from app.orchestration import DagScheduler, Orchestrator, RevisionPolicy
-from app.persistence import InMemoryTaskStore
+from app.persistence import SqlTaskStore, TaskStore
 from app.providers import OpenAIProvider, RetryingModelClient
+from app.services import TaskManager
 from app.tools import ToolRegistry, build_builtin_tools
 
 
 @dataclass
 class AtlasRuntime:
     orchestrator: Orchestrator
-    task_store: InMemoryTaskStore
+    task_store: TaskStore
     memory: InMemoryMemoryStore
     tools: ToolRegistry
+    manager: TaskManager
+
+    async def initialize(self) -> None:
+        if isinstance(self.task_store, SqlTaskStore):
+            await self.task_store.init()
+
+    async def shutdown(self) -> None:
+        await self.manager.shutdown()
+        if isinstance(self.task_store, SqlTaskStore):
+            await self.task_store.close()
 
 
 def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
@@ -51,9 +62,13 @@ def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
         revision_policy=RevisionPolicy(max_revision_attempts=settings.max_iterations),
         scheduler=DagScheduler(max_parallel_tasks=settings.max_parallel_tasks),
     )
+    task_store: TaskStore = SqlTaskStore(settings.database_url)
+    manager = TaskManager(orchestrator, task_store)
+
     return AtlasRuntime(
         orchestrator=orchestrator,
-        task_store=InMemoryTaskStore(),
+        task_store=task_store,
         memory=InMemoryMemoryStore(),
         tools=tool_registry,
+        manager=manager,
     )
