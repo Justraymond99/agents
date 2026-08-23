@@ -8,17 +8,18 @@ from app.models.result import AgentResult, ReviewResult
 from app.models.task import Task, TaskStatus, TaskStep
 from app.models.trace import RunTrace, TraceEvent, TraceEventType
 from app.orchestration.retry import RevisionPolicy
+from app.orchestration.scheduler import DagScheduler
 from app.orchestration.state import ExecutionState, OrchestrationResult
 
 
-class Orchestrator:
-    """Sequential ATLAS orchestrator with bounded reviewer-driven revision.
+class StepExecutionError(RuntimeError):
+    def __init__(self, step: TaskStep) -> None:
+        super().__init__(f"step '{step.id}' failed")
+        self.step = step
 
-    Sprint 5 keeps execution explicit and deterministic: the initial plan is
-    executed sequentially, then a reviewer may reject the result. Rejected work
-    is routed back only to configured revisable agent roles with the review
-    feedback attached to context. The number of revision attempts is capped.
-    """
+
+class Orchestrator:
+    """ATLAS orchestrator with DAG execution and bounded reviewer-driven revision."""
 
     def __init__(
         self,
@@ -27,11 +28,13 @@ class Orchestrator:
         agents: AgentRegistry,
         reviewer_name: str = "reviewer",
         revision_policy: RevisionPolicy | None = None,
+        scheduler: DagScheduler | None = None,
     ) -> None:
         self.planner = planner
         self.agents = agents
         self.reviewer_name = reviewer_name
         self.revision_policy = revision_policy or RevisionPolicy()
+        self.scheduler = scheduler or DagScheduler()
 
     async def execute(self, task: Task) -> OrchestrationResult:
         run_id = str(uuid4())
@@ -105,36 +108,23 @@ class Orchestrator:
 
     async def _execute_plan(self, task: Task, state: ExecutionState) -> bool:
         assert state.plan is not None
-        pending = {step.id: step for step in state.plan.steps}
-        completed: set[str] = set()
 
-        while pending:
-            ready = [
-                step
-                for step in pending.values()
-                if set(step.dependencies).issubset(completed)
-            ]
+        async def runner(step: TaskStep) -> None:
+            output = await self._run_step(task, state, step)
+            if not output.success:
+                raise StepExecutionError(step)
 
-            if not ready:
-                return self._fail(
-                    task,
-                    state,
-                    "No executable task step remained; dependency state is invalid",
-                )
-
-            for step in ready:
-                output = await self._run_step(task, state, step)
-                if not output.success:
-                    return self._fail(
-                        task,
-                        state,
-                        f"Step '{step.id}' failed",
-                        agent=step.assigned_agent,
-                    )
-
-                completed.add(step.id)
-                pending.pop(step.id)
-
+        try:
+            await self.scheduler.run(state.plan, runner)
+        except StepExecutionError as exc:
+            return self._fail(
+                task,
+                state,
+                f"Step '{exc.step.id}' failed",
+                agent=exc.step.assigned_agent,
+            )
+        except RuntimeError as exc:
+            return self._fail(task, state, str(exc))
         return True
 
     async def _run_step(
@@ -205,7 +195,7 @@ class Orchestrator:
         for step in steps:
             previous_result = state.results.get(step.id)
             instruction = (
-                f"Revise the prior work for this step in response to reviewer feedback.\n\n"
+                "Revise the prior work for this step in response to reviewer feedback.\n\n"
                 f"Original step: {step.description}\n\n"
                 f"Reviewer feedback: {json.dumps(feedback, sort_keys=True)}"
             )
