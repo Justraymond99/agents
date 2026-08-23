@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
 
+from app.api.dashboard import build_dashboard_router
 from app.api.routes import build_router
 from app.config.settings import get_settings
 from app.runtime import build_runtime
@@ -43,6 +44,7 @@ async def require_api_token(
 
 
 app.include_router(build_router(runtime))
+app.include_router(build_dashboard_router())
 
 
 @app.get("/health", tags=["system"])
