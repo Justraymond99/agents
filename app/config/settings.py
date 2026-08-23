@@ -8,8 +8,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     workspace: str = "."
+    artifact_dir: str = ".atlas/artifacts"
     database_url: str = "sqlite+aiosqlite:///./atlas.db"
     redis_url: str = "redis://localhost:6379/0"
+    api_token: str | None = None
 
     default_provider: str = "openai"
     default_model: str = "gpt-5.4"
