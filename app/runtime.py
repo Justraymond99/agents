@@ -16,7 +16,7 @@ from app.config.settings import Settings, get_settings
 from app.memory import InMemoryMemoryStore
 from app.orchestration import Orchestrator, RevisionPolicy
 from app.persistence import InMemoryTaskStore
-from app.providers import OpenAIProvider, RetryingProvider
+from app.providers import OpenAIProvider, RetryingModelClient
 
 
 @dataclass
@@ -28,8 +28,8 @@ class AtlasRuntime:
 
 def build_runtime(settings: Settings | None = None) -> AtlasRuntime:
     settings = settings or get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else AsyncOpenAI()
-    provider = RetryingProvider(OpenAIProvider(client))
+    client = AsyncOpenAI(api_key=settings.openai_api_key or "not-configured")
+    provider = RetryingModelClient(OpenAIProvider(client))
 
     planner = PlannerAgent(provider, settings.default_model)
     registry = AgentRegistry()
