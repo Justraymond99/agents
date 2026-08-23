@@ -1,6 +1,7 @@
 from app.agents.base import BaseAgent
 from app.models.result import AgentResult
 from app.providers.base import ModelClient
+from app.tools import Permission, ToolRegistry
 
 
 TESTER_PROMPT = """You are the ATLAS Tester.
@@ -10,7 +11,12 @@ Return only JSON matching AgentResult.
 
 
 class TesterAgent(BaseAgent[AgentResult]):
-    def __init__(self, client: ModelClient, model: str) -> None:
+    def __init__(
+        self,
+        client: ModelClient,
+        model: str,
+        tool_registry: ToolRegistry | None = None,
+    ) -> None:
         super().__init__(
             name="tester",
             role="behavior validation and failure reproduction",
@@ -18,4 +24,6 @@ class TesterAgent(BaseAgent[AgentResult]):
             client=client,
             response_model=AgentResult,
             system_prompt=TESTER_PROMPT,
+            tool_registry=tool_registry,
+            allowed_permissions={Permission.READ, Permission.EXECUTE},
         )
