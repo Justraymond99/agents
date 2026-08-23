@@ -59,11 +59,94 @@ def build_builtin_tools(workspace: Path) -> list[Tool]:
     async def git_diff(args: dict[str, Any]) -> dict[str, Any]:
         return await run_command({"command": ["git", "diff", "--", "."]})
 
+    path_schema = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}},
+        "required": ["path"],
+        "additionalProperties": False,
+    }
+    write_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "content": {"type": "string"},
+        },
+        "required": ["path", "content"],
+        "additionalProperties": False,
+    }
+    command_schema = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        },
+        "required": ["command"],
+        "additionalProperties": False,
+    }
+    test_schema = {
+        "type": "object",
+        "properties": {"args": {"type": "array", "items": {"type": "string"}}},
+        "additionalProperties": False,
+    }
+
     return [
-        Tool(ToolSpec(name="read_file", description="Read a UTF-8 workspace file", permission=Permission.READ), read_file),
-        Tool(ToolSpec(name="write_file", description="Write a UTF-8 workspace file", permission=Permission.WRITE, side_effects=True), write_file),
-        Tool(ToolSpec(name="list_files", description="List a workspace directory", permission=Permission.READ), list_files),
-        Tool(ToolSpec(name="run_command", description="Run a command without a shell", permission=Permission.EXECUTE, timeout_seconds=120), run_command),
-        Tool(ToolSpec(name="run_tests", description="Run pytest", permission=Permission.EXECUTE, timeout_seconds=180), run_tests),
-        Tool(ToolSpec(name="git_diff", description="Return the current git diff", permission=Permission.READ), git_diff),
+        Tool(
+            ToolSpec(
+                name="read_file",
+                description="Read a UTF-8 workspace file",
+                permission=Permission.READ,
+                parameters=path_schema,
+            ),
+            read_file,
+        ),
+        Tool(
+            ToolSpec(
+                name="write_file",
+                description="Write a UTF-8 workspace file",
+                permission=Permission.WRITE,
+                parameters=write_schema,
+                side_effects=True,
+            ),
+            write_file,
+        ),
+        Tool(
+            ToolSpec(
+                name="list_files",
+                description="List a workspace directory",
+                permission=Permission.READ,
+                parameters={
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "additionalProperties": False,
+                },
+            ),
+            list_files,
+        ),
+        Tool(
+            ToolSpec(
+                name="run_command",
+                description="Run a command without a shell",
+                permission=Permission.EXECUTE,
+                parameters=command_schema,
+                timeout_seconds=120,
+            ),
+            run_command,
+        ),
+        Tool(
+            ToolSpec(
+                name="run_tests",
+                description="Run pytest",
+                permission=Permission.EXECUTE,
+                parameters=test_schema,
+                timeout_seconds=180,
+            ),
+            run_tests,
+        ),
+        Tool(
+            ToolSpec(
+                name="git_diff",
+                description="Return the current git diff",
+                permission=Permission.READ,
+            ),
+            git_diff,
+        ),
     ]
