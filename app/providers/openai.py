@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import json
+
 from openai import APIError, AsyncOpenAI
 
-from app.models.message import MessageRole, ModelRequest, ModelResponse, ModelUsage
+from app.models.message import (
+    MessageRole,
+    ModelRequest,
+    ModelResponse,
+    ModelToolCall,
+    ModelUsage,
+)
 from app.providers.errors import ProviderError, ProviderResponseError
 
 
@@ -58,6 +66,25 @@ class OpenAIProvider:
             message = response.error.message if response.error is not None else "unknown provider error"
             raise ProviderResponseError(message)
 
+        tool_calls: list[ModelToolCall] = []
+        for item in response.output:
+            if getattr(item, "type", None) != "function_call":
+                continue
+            raw_arguments = getattr(item, "arguments", "{}") or "{}"
+            try:
+                arguments = json.loads(raw_arguments)
+            except json.JSONDecodeError as exc:
+                raise ProviderResponseError("model returned invalid tool-call JSON") from exc
+            if not isinstance(arguments, dict):
+                raise ProviderResponseError("model tool-call arguments must be an object")
+            tool_calls.append(
+                ModelToolCall(
+                    call_id=str(getattr(item, "call_id", "call")),
+                    name=str(getattr(item, "name", "")),
+                    arguments=arguments,
+                )
+            )
+
         usage = ModelUsage()
         if response.usage is not None:
             usage = ModelUsage(
@@ -72,5 +99,6 @@ class OpenAIProvider:
             output_text=output_text,
             response_id=response.id,
             usage=usage,
+            tool_calls=tool_calls,
             raw_metadata={"status": response.status},
         )
