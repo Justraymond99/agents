@@ -6,7 +6,10 @@ The harness is the source of truth for orchestration, memory, permissions, retri
 
 ## Current status
 
-Sprint 0 — repository bootstrap.
+- Sprint 0 — repository bootstrap: complete
+- Sprint 1 — typed task/result/trace domain models: complete
+- Sprint 2 — provider abstraction, OpenAI adapter, registry, normalized errors, and retries: complete
+- Sprint 3 — base agent system: next
 
 ## Initial architecture
 
@@ -29,9 +32,16 @@ Task
 - asyncio
 - PostgreSQL
 - Redis
+- OpenAI Responses API adapter
 - pytest
 - OpenTelemetry
 - Docker
+
+## Provider layer
+
+ATLAS agents use a common `ModelClient` interface. Provider-specific SDK details stay behind adapters, while orchestration code works with normalized `ModelRequest` and `ModelResponse` contracts.
+
+The first adapter uses OpenAI's Responses API. The provider registry and retry wrapper are intentionally model-provider independent so additional adapters can be added without changing agent or orchestration code.
 
 ## First milestone
 
