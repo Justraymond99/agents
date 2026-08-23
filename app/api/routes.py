@@ -33,6 +33,12 @@ class ResolveApprovalRequest(BaseModel):
     approved: bool
 
 
+class CreateArtifactRequest(BaseModel):
+    name: str = Field(min_length=1)
+    content: str
+    media_type: str = "text/plain"
+
+
 def build_router(runtime: AtlasRuntime) -> APIRouter:
     router = APIRouter()
 
@@ -117,5 +123,21 @@ def build_router(runtime: AtlasRuntime) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return approval.model_dump(mode="json")
+
+    @router.post("/artifacts")
+    async def create_artifact(request: CreateArtifactRequest) -> dict[str, object]:
+        artifact = runtime.artifacts.put_bytes(
+            request.name,
+            request.content.encode("utf-8"),
+            media_type=request.media_type,
+        )
+        return artifact.model_dump(mode="json")
+
+    @router.get("/artifacts/{artifact_id}")
+    async def get_artifact(artifact_id: str) -> dict[str, object]:
+        artifact = runtime.artifacts.get(artifact_id)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return artifact.model_dump(mode="json")
 
     return router
