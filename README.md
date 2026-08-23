@@ -103,11 +103,13 @@ Task submission is asynchronous over HTTP and returns `202 Accepted`; poll the t
 
 ## Security
 
-Set `ATLAS_API_TOKEN` before exposing ATLAS beyond a trusted local development environment. When configured, every HTTP endpoint except `/health` requires:
+Set `ATLAS_API_TOKEN` before exposing ATLAS beyond a trusted local development environment. When configured, protected API endpoints require:
 
 ```text
 Authorization: Bearer <ATLAS_API_TOKEN>
 ```
+
+`/health` and `/dashboard` remain readable so a browser can bootstrap the control surface. The dashboard provides an optional token field and stores the value only in the current tab's `sessionStorage`; requests from the dashboard to protected endpoints include the bearer token automatically.
 
 Built-in filesystem tools are constrained to `ATLAS_WORKSPACE`, commands are executed without a shell, and agents receive role-specific tool permissions. High-impact external actions should be routed through approval gates before production use.
 
