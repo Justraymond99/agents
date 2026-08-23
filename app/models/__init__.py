@@ -3,6 +3,7 @@ from app.models.message import (
     MessageRole,
     ModelRequest,
     ModelResponse,
+    ModelToolCall,
     ModelUsage,
     ToolSchema,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "MessageRole",
     "ModelRequest",
     "ModelResponse",
+    "ModelToolCall",
     "ModelUsage",
     "ReviewResult",
     "RunTrace",
