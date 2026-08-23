@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
+
+TraceAttribute = str | bool | int | float
 
 
 def configure_tracing(service_name: str = "atlas") -> None:
@@ -16,7 +18,7 @@ def configure_tracing(service_name: str = "atlas") -> None:
 
 
 @contextmanager
-def span(name: str, **attributes: object) -> Iterator[None]:
+def span(name: str, **attributes: TraceAttribute) -> Iterator[None]:
     tracer = trace.get_tracer("atlas")
     with tracer.start_as_current_span(name) as current:
         for key, value in attributes.items():
