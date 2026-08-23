@@ -20,6 +20,9 @@ class ToolSpec(BaseModel):
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
     permission: Permission
+    parameters: dict[str, object] = Field(
+        default_factory=lambda: {"type": "object", "properties": {}, "additionalProperties": False}
+    )
     timeout_seconds: float = Field(default=30.0, gt=0)
     side_effects: bool = False
 
