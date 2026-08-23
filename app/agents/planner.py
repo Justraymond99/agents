@@ -5,7 +5,8 @@ from app.providers.base import ModelClient
 
 PLANNER_PROMPT = """You are the ATLAS Planner.
 Decompose the requested goal into the smallest useful executable task graph.
-Assign each step to one of: researcher, builder, tester, reviewer.
+Assign executable steps only to: researcher, builder, tester.
+The reviewer is invoked automatically by the orchestrator after executable steps finish, so never assign a TaskStep to reviewer.
 Return only JSON matching the TaskPlan schema. Keep dependencies explicit and acyclic.
 """
 
