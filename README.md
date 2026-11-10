@@ -139,7 +139,7 @@ ATLAS_DATABASE_URL=postgresql+asyncpg://atlas:atlas@localhost:5432/atlas
 
 `docker compose up -d` starts local PostgreSQL and Redis services.
 
-## Engineering workflow
+See [engineering verification and collaboration guidance](docs/ENGINEERING_VERIFICATION.md) for risk-based PR review, shared team standards, and evidence-backed ATLAS evaluations. ATLAS evaluation cases do not pass without an independent verifier.\n\n## Engineering workflow
 
 A typical task can follow:
 

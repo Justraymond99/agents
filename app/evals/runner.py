@@ -7,6 +7,10 @@ from typing import Awaitable, Callable
 from app.models.task import TaskStatus
 from app.orchestration.state import OrchestrationResult
 
+# A verifier must inspect independent evidence (e.g. tests, a known diff, or
+# seeded defects), rather than trusting the model's own approval.
+EvidenceVerifier = Callable[["EvalCase", OrchestrationResult], Awaitable["Verification"]]
+
 
 @dataclass(frozen=True, slots=True)
 class EvalCase:
@@ -16,24 +20,42 @@ class EvalCase:
 
 
 @dataclass(frozen=True, slots=True)
+class Verification:
+    passed: bool
+    evidence: str
+
+
+@dataclass(frozen=True, slots=True)
 class EvalResult:
     case: str
     passed: bool
     duration_ms: float
     iterations: int
+    status_matched: bool = False
+    verified: bool = False
+    evidence: str = ""
 
 
 async def run_eval(
     case: EvalCase,
     executor: Callable[[str], Awaitable[OrchestrationResult]],
+    *,
+    verifier: EvidenceVerifier | None = None,
 ) -> EvalResult:
     start = perf_counter()
     result = await executor(case.goal)
+    status_matched = result.status is case.expected_status
+    verification = await verifier(case, result) if verifier is not None else None
+    # An agent approving its own output is never sufficient to pass an eval.
+    passed = status_matched and verification is not None and verification.passed
     return EvalResult(
         case=case.name,
-        passed=result.status is case.expected_status,
+        passed=passed,
         duration_ms=(perf_counter() - start) * 1000,
         iterations=result.revision_attempts,
+        status_matched=status_matched,
+        verified=verification is not None,
+        evidence=verification.evidence if verification is not None else "No independent verifier supplied",
     )
 
 
