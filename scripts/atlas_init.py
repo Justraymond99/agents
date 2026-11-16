@@ -52,7 +52,6 @@ def install(project: Path, client: str, dry_run: bool = False):
     for src, dest in files:
         rel = str(dest.relative_to(project))
         # Reject symlinked parent directories, including dangling links.
-        parents = list(reversed(dest.relative_to(project).parents))
         current = project
         unsafe = False
         for part in dest.relative_to(project).parts[:-1]:
