@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "project": "Buddy Walk (pilot; repository-local profile proposed)",
+  "description": "Nonexecuting, review-first verification checklist grounded in Buddy-Walk/buddy-walk package scripts on main. No app behavior has been verified.",
+  "prerequisites": [
+    "Use a disposable checkout of Buddy-Walk/buddy-walk; inspect the current scripts before running",
+    "Install dependencies for mobile/ and team-console/ using their documented package managers; confirm lockfiles",
+    "Do not use production credentials or real user data; do not run a live API or device workflow without an approved test environment",
+    "Review command side effects and required permissions with a maintainer"
+  ],
+  "checks": [
+    {
+      "id": "mobile-qa",
+      "phase": "verify",
+      "argv": [
+        "npm",
+        "--prefix",
+        "mobile",
+        "run",
+        "qa"
+      ],
+      "expected": "Observe exit status and full output from mobile TypeScript check and mobile test runner; inspect any skipped tests",
+      "risk": "Local test scripts can execute arbitrary repository code; no runtime/device behavior is established",
+      "approval_required": true
+    },
+    {
+      "id": "team-console-check",
+      "phase": "verify",
+      "argv": [
+        "bun",
+        "run",
+        "--cwd",
+        "team-console",
+        "build"
+      ],
+      "expected": "Observe build exit status and output; confirms build only, not deployed behavior",
+      "risk": "Local build scripts and plugins execute code; may require environment configuration",
+      "approval_required": true
+    }
+  ]
+}
