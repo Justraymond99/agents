@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "project": "Example Python application (illustrative; not Buddy Walk)",
+  "description": "Demonstrates a local unit-test verification profile. Commands are examples, not confirmed to work in your project.",
+  "prerequisites": [
+    "Use a disposable local checkout",
+    "Confirm dependencies are installed",
+    "Review every command before execution"
+  ],
+  "checks": [
+    {
+      "id": "unit-tests",
+      "phase": "verify",
+      "argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests"
+      ],
+      "expected": "Command exits 0 and reports passing tests; retain actual output",
+      "risk": "local read/test execution; tests may have side effects",
+      "approval_required": false
+    }
+  ]
+}
