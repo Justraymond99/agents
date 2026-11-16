@@ -1,70 +1,75 @@
 # ATLAS
 
-ATLAS is a provider-agnostic multi-agent orchestration harness designed to coordinate specialized AI agents across engineering, research, planning, interview preparation, and personal workflows.
+**Portable AI engineering discipline for the coding assistant you already use.**
 
-The harness owns orchestration, tool permissions, execution limits, memory, persistence, review/revision, scheduling, artifacts, approvals, observability, and client interfaces. Codex, Cursor, HTTP clients, and the Apple thin-client scaffold all connect to the same backend.
+ATLAS Core brings structured bug investigation, feature implementation, code review, verification, and optional teaching into existing AI coding environments. **No ATLAS server, MCP setup, or ATLAS API key is required for Core.** Your coding assistant uses its own configured model and tools.
 
-## v0.1 status
+The existing Python **ATLAS Runtime** remains available for advanced multi-agent orchestration, scheduling, persistence, permissions, approvals, and observability. It is optional, not a prerequisite for Core.
 
-The original implementation roadmap through Sprint 12 is now represented in the repository:
+## Start here: ATLAS Core (Codex-first)
 
-- Sprint 0 — Python/FastAPI bootstrap, Docker, CI, configuration
-- Sprint 1 — typed task/result/trace models and DAG validation
-- Sprint 2 — provider abstraction, OpenAI Responses adapter, retry/error normalization
-- Sprint 3 — Planner, Researcher, Builder, Tester, Reviewer, agent registry
-- Sprint 4 — orchestrator and explicit execution state
-- Sprint 5 — bounded reviewer-driven revision loop
-- Sprint 6 — constrained tools, permissions, timeouts, workspace sandboxing, audit records
-- Sprint 7 — bounded concurrent DAG scheduler
-- Sprint 8 — async SQL task/result persistence and Redis run-state support
-- Sprint 9 — OpenTelemetry tracing plus runtime counters/timings
-- Sprint 10 — MCP server for Codex/Cursor-style clients
-- Sprint 11 — engineering domain workflows
-- Sprint 12 — evaluation harness and benchmark cases
+Prerequisite: Python 3.10+ for the installer; an existing project and compatible coding assistant.
 
-Post-MVP capabilities are also scaffolded: SQL long-term memory, model routing/budget policy, approval gates, artifact storage, background tasks, recurring schedules, dynamic agents, HTTP API security, a lightweight dashboard, and iPhone/watchOS client source.
+Clone this repository, then run from its root (replace the project path):
 
-## Architecture
+```bash
+python scripts/atlas_init.py --project /absolute/path/to/your/project --client codex --dry-run
+python scripts/atlas_init.py --project /absolute/path/to/your/project --client codex
+python scripts/atlas_check.py --project /absolute/path/to/your/project --client codex
+```
+
+Open **your project root** in Codex. Try:
+
+> Which ATLAS skills are available? Do not edit anything. Explain the engineering contract and how to enable Teaching Mode.
+
+Then try:
+
+> Use ATLAS Teaching Mode to investigate a bug in this repository. Do not edit files yet. Show your investigation plan and the evidence you need.
+
+The installer copies `AGENTS.md`, canonical skills under `atlas/skills/`, and Codex-compatible skills under `.agents/skills/`. **It never overwrites existing files.** If it reports a skipped file, manually merge the instructions; an existing `AGENTS.md` may otherwise not reference ATLAS. The checker validates file structure, **not** actual Codex discovery or behavior. Confirm skill availability in your client and verify results manually.
+
+For Claude Code use `--client claude` (installs `CLAUDE.md`); for Cursor use `--client cursor` (installs `.cursor/rules/atlas.mdc`). These are instruction-based integrations and may require manual configuration depending on client version.
+
+### Engineering contract
+
+- Understand relevant code and expected behavior before editing.
+- Reproduce bugs or gather evidence when feasible; label hypotheses.
+- Keep changes minimal and preserve security and safety controls.
+- Run relevant checks and report **actual** commands/results.
+- Clearly explain remaining risks; never claim self-review is independent.
+
+Core ships three skills: **investigate-bug**, **implement-feature**, and **review-code**. Ask for **ATLAS Teaching Mode** to receive concise explanations of decisions, alternatives, terminology, and verification evidence. Instructions cannot enforce tool permissions or guarantee model compliance.
+
+Run installer tests with `python -m unittest discover -s tests -p 'test_atlas_core.py' -v`.
+
+## Advanced: ATLAS Python Runtime (optional)
+
+ATLAS Runtime is a provider-agnostic multi-agent orchestration harness. It coordinates Planner, Researcher, Builder, Tester and Reviewer agents with typed task DAGs, constrained tools, bounded revisions, persistence, MCP, and evaluations.
+
+### Runtime architecture
 
 ```text
-Client (MCP / HTTP / Apple)
+MCP / HTTP / Apple client
           |
-          v
       ATLAS Runtime
           |
-          v
-       Planner
+        Planner
           |
-          v
-      Typed DAG
+       Typed DAG
      /    |    \
 Research Build  Test
      \    |    /
       Shared State
           |
-          v
-       Reviewer
-       /      \
-    PASS      REVISE
-                |
-                +----> bounded retry
+        Reviewer
+      PASS / REVISE
 ```
 
-## Core stack
+### Runtime stack
 
-- Python 3.12+
-- FastAPI + Pydantic
-- asyncio
-- OpenAI Responses API adapter behind a provider-neutral interface
-- SQLAlchemy async persistence (SQLite by default; PostgreSQL supported)
-- Redis support for ephemeral run state
-- OpenTelemetry
-- MCP
-- pytest, Ruff, mypy
-- Docker / Docker Compose
-- SwiftUI/watchOS thin-client source
+Python 3.12+, FastAPI/Pydantic, asyncio, OpenAI Responses adapter behind provider abstraction, SQLAlchemy async SQLite/PostgreSQL, optional Redis, OpenTelemetry, MCP, pytest/Ruff/mypy, Docker, and SwiftUI/watchOS scaffold.
 
-## Quick start
+### Runtime quick start
 
 ```bash
 python -m venv .venv
@@ -73,94 +78,16 @@ pip install -e '.[dev]'
 cp .env.example .env
 ```
 
-Set `ATLAS_OPENAI_API_KEY` in `.env`, then run:
+Set `ATLAS_OPENAI_API_KEY` in `.env`, then start `uvicorn app.main:app --reload`. For MCP run `python -m app.mcp_server`; see [MCP client configuration](docs/MCP_CLIENTS.md).
 
-```bash
-uvicorn app.main:app --reload
-```
+Runtime HTTP task submission returns `202 Accepted`; poll `GET /tasks/{id}` or `GET /tasks/{id}/result`. Additional endpoints include `/health`, `/dashboard`, `/tools`, `/metrics`, `/memory/write`, `/memory/query`, `/approvals`, `/artifacts`, and `/schedules`.
 
-Useful endpoints:
+### Runtime security and limitations
 
-```text
-GET  /health
-POST /tasks
-GET  /tasks/{id}
-GET  /tasks/{id}/result
-GET  /tasks/{id}/trace
-POST /tasks/{id}/cancel
-GET  /tools
-GET  /tools/audit
-GET  /metrics
-POST /memory/write
-POST /memory/query
-POST /approvals
-POST /artifacts
-POST /schedules
-GET  /dashboard
-```
+Set `ATLAS_API_TOKEN` before exposing the runtime outside trusted local development. Protected endpoints use `Authorization: Bearer <ATLAS_API_TOKEN>`; `/health` and `/dashboard` remain readable. Built-in filesystem tools are constrained to `ATLAS_WORKSPACE`, commands run without a shell, and roles have tool permissions. High-impact external actions need approval controls before production use.
 
-Task submission is asynchronous over HTTP and returns `202 Accepted`; poll the task/result endpoints for completion.
+SQLite is the default (`ATLAS_DATABASE_URL=sqlite+aiosqlite:///./atlas.db`); PostgreSQL and Redis can be started with `docker compose up -d`. See [engineering verification](docs/ENGINEERING_VERIFICATION.md) and [original project specification](PROJECT_SPEC.md).
 
-## Security
+The runtime is an engineering foundation, **not** a production-hosted autonomous service. Deployment, secrets management, durable distributed scheduling, production-grade authentication/authorization, vector retrieval, push notifications, and signed Apple builds remain future work.
 
-Set `ATLAS_API_TOKEN` before exposing ATLAS beyond a trusted local development environment. When configured, protected API endpoints require:
-
-```text
-Authorization: Bearer <ATLAS_API_TOKEN>
-```
-
-`/health` and `/dashboard` remain readable so a browser can bootstrap the control surface. The dashboard provides an optional token field and stores the value only in the current tab's `sessionStorage`; requests from the dashboard to protected endpoints include the bearer token automatically.
-
-Built-in filesystem tools are constrained to `ATLAS_WORKSPACE`, commands are executed without a shell, and agents receive role-specific tool permissions. High-impact external actions should be routed through approval gates before production use.
-
-## MCP
-
-Start the MCP server with:
-
-```bash
-python -m app.mcp_server
-```
-
-Current MCP surface includes task submission/status/results/cancellation, namespaced memory, artifacts, approval requests, and runtime metrics. See [`docs/MCP_CLIENTS.md`](docs/MCP_CLIENTS.md) for client configuration.
-
-## Persistence
-
-The default local database is SQLite:
-
-```text
-ATLAS_DATABASE_URL=sqlite+aiosqlite:///./atlas.db
-```
-
-For PostgreSQL, use an async URL such as:
-
-```text
-ATLAS_DATABASE_URL=postgresql+asyncpg://atlas:atlas@localhost:5432/atlas
-```
-
-`docker compose up -d` starts local PostgreSQL and Redis services.
-
-See [engineering verification and collaboration guidance](docs/ENGINEERING_VERIFICATION.md) for risk-based PR review, shared team standards, and evidence-backed ATLAS evaluations. ATLAS evaluation cases do not pass without an independent verifier.\n\n## Engineering workflow
-
-A typical task can follow:
-
-```text
-Planner
-  -> Researcher inspects context
-  -> Tester reproduces failure
-  -> Builder makes the smallest verified change
-  -> Tester validates
-  -> Reviewer independently approves or rejects
-  -> Builder revises when required
-```
-
-The model may request constrained tools such as `read_file`, `write_file`, `list_files`, `run_command`, `run_tests`, and `git_diff`. Every executed tool call is recorded in the in-process audit trail.
-
-## Apple Watch / iPhone
-
-`clients/apple/` contains the initial Swift thin-client source. The Watch does not host the agents; it submits tasks to the ATLAS API, checks status/results, and can resolve approvals. A real device build still requires creating the iOS/watchOS targets in Xcode, configuring a reachable HTTPS endpoint, and provisioning/authentication.
-
-## What v0.1 deliberately does not claim
-
-ATLAS is a functional engineering foundation, not a production-hosted autonomous service yet. Deployment, secrets management, durable distributed scheduling, production-grade authentication/authorization, vector retrieval, push notifications, and a signed App Store/watchOS build remain environment/deployment work rather than core harness code.
-
-See [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the original design and roadmap.
+The original Sprint 0–12 roadmap covered API bootstrap, typed DAGs, provider abstraction, agents, orchestration, revision loops, tool safety, scheduling, persistence, telemetry, MCP, engineering workflows, and evaluations. Subsequent scaffolding includes memory, model routing, approval gates, artifacts, recurring schedules, dynamic agents, a dashboard, and Apple thin clients.
