@@ -5,6 +5,27 @@ from pathlib import Path
 
 SKILLS = ("investigate-bug", "implement-feature", "review-code")
 
+
+def _valid_skill_metadata(content: str, expected: str) -> bool:
+    lines = content.splitlines()
+    if len(lines) < 4 or lines[0].strip() != "---":
+        return False
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        return False
+    metadata = {}
+    for line in lines[1:end]:
+        if ":" not in line:
+            return False
+        key, value = line.split(":", 1)
+        key, value = key.strip(), value.strip()
+        if not key or key in metadata:
+            return False
+        metadata[key] = value.strip("\"'")
+    return metadata.get("name") == expected and bool(metadata.get("description", "").strip())
+
+
 def check(project: Path, client: str):
     if client not in ("codex", "claude", "cursor"):
         raise ValueError(f"Unsupported client: {client}")
@@ -25,12 +46,12 @@ def check(project: Path, client: str):
             errors.append(f"EMPTY {rel}")
     if client == "codex":
         for skill in SKILLS:
-            path = project / ".agents/skills" / skill / "SKILL.md"
-            if path.is_file():
-                content = path.read_text(encoding="utf-8")
-                if not content.startswith("---\n") or f"name: {skill}" not in content or "description:" not in content:
-                    errors.append(f"INVALID SKILL METADATA {path.relative_to(project)}")
+            rel = Path(".agents/skills") / skill / "SKILL.md"
+            path = project / rel
+            if path.is_file() and not _valid_skill_metadata(path.read_text(encoding="utf-8"), skill):
+                errors.append(f"INVALID SKILL METADATA {rel}")
     return errors
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -44,6 +65,7 @@ def main():
     print("PASS: ATLAS Core files are present and structurally valid.")
     print("This does not prove IDE discovery or instruction compliance.")
     print('Manual test: ask your assistant "Which ATLAS skills are available? Do not edit anything."')
+
 
 if __name__ == "__main__":
     main()
